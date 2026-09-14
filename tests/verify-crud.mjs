@@ -42,7 +42,7 @@ const baseline = await count();
 
 // ---------------------------------------------------- crear pegando un enlace de Google Maps
 await page.getByRole("button", { name: "Agregar" }).click();
-await page.getByPlaceholder("https://www.google.com/maps/").fill(
+await page.locator('input[placeholder^="https://maps.app.goo.gl"]').fill(
   "https://www.google.com/maps/place/Olive+Young/@37.5601,126.9822,17z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d37.5601!4d126.9822",
 );
 await page.getByPlaceholder("Cómo lo vas a reconocer").fill("Prueba Myeongdong");

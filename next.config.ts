@@ -14,6 +14,10 @@ const withSerwist = withSerwistInit({
   // En desarrollo el service worker sólo estorba: cachea el shell y tapa los cambios.
   disable: process.env.NODE_ENV === "development",
   reloadOnOnline: false,
+  // La app registra el service worker en components/ui/ServiceWorker.tsx, con su try/catch.
+  // Dejar también el registro automático de Serwist duplicaba el trabajo y fallaba cuando el
+  // navegador bloquea el registro.
+  register: false,
   /**
    * Las tres rutas se precachean a mano.
    *

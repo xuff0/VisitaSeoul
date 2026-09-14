@@ -1,3 +1,4 @@
+import { DISTRICTS, type District } from "@/lib/data/geo";
 import { STATIONS, LINE_BY_ID, type Station } from "@/lib/data/metro";
 
 export type LatLng = { lat: number; lng: number };
@@ -83,6 +84,54 @@ export function parseCoords(input: string): LatLng | null {
     const lng = +m[2];
     if (lat >= 32 && lat <= 40 && lng >= 123 && lng <= 133) return { lat, lng };
     if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+  }
+  return null;
+}
+
+/**
+ * Reconoce los enlaces cortos de Google Maps, que son los que comparte la aplicación del teléfono.
+ *
+ * Estos enlaces no llevan las coordenadas adentro: son un redireccionamiento. Hay que seguirlo
+ * para saber a dónde apuntan, y eso el navegador no puede hacerlo por CORS, así que lo resuelve
+ * el servidor (app/api/resolver).
+ */
+export function isShortMapsLink(input: string): boolean {
+  const s = (input ?? "").trim();
+  if (!/^https?:\/\//i.test(s)) return false;
+  try {
+    const host = new URL(s).hostname.toLowerCase();
+    return host === "maps.app.goo.gl" || host === "goo.gl" || host === "g.co";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ¿El punto cae dentro del anillo? Trazado de rayo: se cuenta cuántas veces una semirrecta que
+ * sale del punto cruza el borde. Impar, está adentro; par, afuera.
+ */
+function inRing(lat: number, lng: number, ring: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [latI, lngI] = ring[i];
+    const [latJ, lngJ] = ring[j];
+    const crosses = latI > lat !== latJ > lat;
+    if (crosses && lng < ((lngJ - lngI) * (lat - latI)) / (latJ - latI) + lngI) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Distrito (구) de Seúl que contiene un punto, o null si cae fuera de la ciudad.
+ *
+ * Usa los mismos 25 polígonos que dibuja la capa de distritos, así que deducir el barrio de un
+ * lugar nuevo no cuesta ni una consulta a la red: funciona igual sin señal.
+ */
+export function districtAt(lat: number, lng: number): District | null {
+  for (const d of DISTRICTS) {
+    for (const ring of d.r) {
+      if (inRing(lat, lng, ring)) return d;
+    }
   }
   return null;
 }

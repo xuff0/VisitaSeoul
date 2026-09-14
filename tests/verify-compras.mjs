@@ -71,10 +71,10 @@ await page.getByRole("link", { name: /Mi viaje/ }).click();
 await page.waitForTimeout(1200);
 
 for (const [label, check] of [
-  ["GeoJSON", (t) => { const j = JSON.parse(t); return j.type === "FeatureCollection" && j.features.length === 134; }],
+  ["GeoJSON", (t) => { const j = JSON.parse(t); return j.type === "FeatureCollection" && j.features.length === 141; }],
   ["KML", (t) => t.includes("<kml") && t.includes("<Folder>") && t.includes("올리브영")],
-  ["GPX", (t) => t.includes("<gpx") && (t.match(/<wpt /g) ?? []).length === 134],
-  ["CSV", (t) => t.charCodeAt(0) === 0xfeff && t.split("\n").length === 135],
+  ["GPX", (t) => t.includes("<gpx") && (t.match(/<wpt /g) ?? []).length === 141],
+  ["CSV", (t) => t.charCodeAt(0) === 0xfeff && t.split("\n").length === 142],
 ]) {
   const [dl] = await Promise.all([
     page.waitForEvent("download"),

@@ -45,10 +45,10 @@ const pins = await page.locator(".vs-pin").count();
 ok("el mapa dibuja los marcadores", pins > 100, `${pins} marcadores`);
 
 const countText = await page.getByText(/^\d+ sitios/).first().textContent();
-ok("la lista informa el total", /134 sitios/.test(countText ?? ""), countText?.trim());
+ok("la lista informa el total", /141 sitios/.test(countText ?? ""), countText?.trim());
 
 const cards = await page.locator("[data-place-id]").count();
-ok("la lista renderiza las fichas", cards === 134, `${cards} fichas`);
+ok("la lista renderiza las fichas", cards === 141, `${cards} fichas`);
 
 await page.screenshot({ path: `${shots}/01-mapa.png` });
 

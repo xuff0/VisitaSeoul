@@ -9,12 +9,19 @@ puestos en el mismo lugar: parado frente a la góndola de Olive Young, la app sa
 
 ## Qué hace
 
-**Mapa.** 134 lugares sobre la red de trenes del área metropolitana, en once grupos: turismo,
-k-beauty, centros comerciales, mercados, electrónica, conveniencia, ópticas, ginseng, comida, ropa
-y otros. Cada uno dice a qué estación queda y a cuántos metros. Tu ubicación en vivo, filtro por
-radio (500 m, 1 km, 3 km) y orden por distancia.
+**Mapa.** 141 lugares sobre la red de trenes del área metropolitana, en doce grupos: turismo,
+k-beauty, centros comerciales, mercados, electrónica, conveniencia, ópticas, ginseng, medicina,
+comida, ropa y otros. Cada uno dice a qué estación queda y a cuántos metros. Tu ubicación en vivo,
+filtro por radio (500 m, 1 km, 3 km) y orden por distancia.
 
-**Agregar, editar y eliminar — todo.** No sólo lo que agregás vos: también los 134 que vienen
+**Agregar pegando un enlace y nada más.** Los enlaces cortos que comparte la aplicación de Google
+Maps (`maps.app.goo.gl/…`) son un redireccionamiento y no llevan las coordenadas adentro; el
+navegador no puede seguirlos por CORS, así que lo hace una ruta del servidor. De lo que vuelve se
+completa el nombre, el nombre coreano si viene en hangul, el barrio —deducido del punto contra los
+polígonos de los 25 distritos, sin consultar nada— y un grupo sugerido según el nombre. Sólo se
+llenan los campos vacíos: lo que ya escribiste manda.
+
+**Editar y eliminar — todo.** No sólo lo que agregás vos: también los 134 que vienen
 cargados. De los precargados se guarda sólo el diff, así que si una versión futura corrige la
 dirección de una tienda, la corrección te llega igual aunque le hayas cambiado el nombre.
 "Restaurar original" deshace tus cambios, y lo que ocultás se puede recuperar desde *Mi viaje*.
@@ -55,9 +62,10 @@ sus 644 estaciones y el catálogo de compras se despliegan con el código: carga
 consultas, y funcionan sin señal desde el primer segundo. La base guarda solamente lo tuyo.
 
 ```
-app/            las tres pantallas y el service worker
+app/            las tres pantallas, la ruta que resuelve enlaces cortos y el service worker
 components/     mapa (Leaflet imperativo), lugares, compras, interfaz
 lib/data/       semilla: lugares, red de trenes, geometría de Seúl, catálogo de compras
+lib/autofill.ts deducción de barrio, idioma del nombre y grupo sugerido
 lib/db/         Dexie y la mezcla de semilla + tus ediciones + tus lugares
 lib/sync/       motor de sincronización y adaptador de Supabase
 supabase/       migraciones SQL
@@ -99,21 +107,34 @@ configurado. Sin las variables el build pasa igual y la app corre en modo local.
 
 ```bash
 npm run typecheck
-npm test                     # 67 unitarias: Naver, arbitraje, exportadores, mezcla, sincronización
+npm test                     # 96 unitarias: Naver, arbitraje, exportadores, mezcla, sincronización,
+                             # autocompletado y las defensas del resolvedor de enlaces
 bash tests/rls.sh            # levanta un Postgres temporal y comprueba que el RLS aísle
 npm run build && npm start
 node tests/verify.mjs        # mapa, filtros, búsqueda en hangul, ubicación
 node tests/verify-crud.mjs   # crear, editar, ocultar, restaurar y eliminar
 node tests/verify-compras.mjs # catálogo, franquicia, los cuatro formatos de exportación, sin conexión
+node tests/verify-autofill.mjs # enlaces cortos, autocompletado y el grupo Medicina
 ```
 
-Los tres `verify*.mjs` necesitan el servidor levantado y usan el Chromium de Playwright. Aceptan
+Los cuatro `verify*.mjs` necesitan el servidor levantado y usan el Chromium de Playwright. Aceptan
 `BASE_URL`, `SHOTS_DIR` para las capturas y `PW_CHROMIUM` para apuntar a un Chromium ya instalado,
 útil donde no se pueden descargar navegadores:
 
 ```bash
 PW_CHROMIUM=/ruta/a/chrome node tests/verify.mjs
 ```
+
+## Sobre el resolvedor de enlaces
+
+`app/api/resolver` es la única parte que sale a la red desde el servidor, así que es también la
+única superficie de SSRF. Las defensas son cuatro: sólo se aceptan enlaces de los acortadores de
+Google como punto de entrada, cada salto del redireccionamiento se vuelve a validar contra esa
+lista, hay tope de saltos, de tiempo y de bytes leídos, y la respuesta devuelve únicamente las
+coordenadas y el nombre —nunca el cuerpo descargado—. Las pruebas cubren cada una de esas puertas.
+
+Como es una consulta en vivo, sin señal no funciona: ahí el formulario lo dice y te ofrece las
+salidas de siempre (pegar el enlace largo, escribir las coordenadas, o marcar el punto en el mapa).
 
 ## Sobre los datos
 
