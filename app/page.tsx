@@ -51,6 +51,40 @@ export default function MapPage() {
   const [manualCoords, setManualCoords] = useState("");
 
   const focusRef = useRef<((lat: number, lng: number, zoom?: number) => void) | null>(null);
+  const barraRef = useRef<HTMLDivElement>(null);
+  /** Ficha que está destellando. Va en estado: puesto a mano en el DOM, el siguiente render lo borra. */
+  const [destello, setDestello] = useState<string | null>(null);
+  const destelloTimer = useRef<number | undefined>(undefined);
+
+  /**
+   * Lleva la vista a la ficha de un sitio y la resalta.
+   *
+   * Se usa al tocar un punto del mapa. Dos detalles que importan en el teléfono: el desplazamiento
+   * descuenta la altura de la barra pegajosa, para que la ficha no quede debajo de los filtros; y
+   * si la ficha ya está a la vista no se mueve nada, porque un salto sin motivo desorienta más de
+   * lo que ayuda. El destello es el que dice «es ésta»: con más de cien fichas iguales, el borde
+   * solo no alcanza.
+   */
+  function revelarFicha(id: string) {
+    const el = document.querySelector<HTMLElement>(`[data-place-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+
+    const barra = barraRef.current?.getBoundingClientRect().height ?? 0;
+    const caja = el.getBoundingClientRect();
+    const yaVisible = caja.top >= barra && caja.bottom <= window.innerHeight;
+
+    if (!yaVisible) {
+      const suave = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      window.scrollTo({ top: caja.top + window.scrollY - barra - 10, behavior: suave });
+    }
+
+    // Apagar y volver a encender en el cuadro siguiente reinicia la animación cuando tocás dos
+    // veces el mismo punto; si no, la clase ya estaría puesta y no pasaría nada.
+    window.clearTimeout(destelloTimer.current);
+    setDestello(null);
+    requestAnimationFrame(() => setDestello(id));
+    destelloTimer.current = window.setTimeout(() => setDestello(null), 1600);
+  }
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -125,7 +159,7 @@ export default function MapPage() {
 
   return (
     <>
-      <div className="sticky top-0 z-[600] border-b border-line bg-paper pt-2 pb-2.5">
+      <div ref={barraRef} className="sticky top-0 z-[1100] border-b border-line bg-paper pt-2 pb-2.5">
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center gap-2 rounded-[10px] border border-line bg-panel px-2.5 py-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-ink-3" aria-hidden>
@@ -187,7 +221,7 @@ export default function MapPage() {
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(360px,420px)_1fr] lg:items-start">
-        <div className="lg:sticky lg:top-[150px]">
+        <div id="mapa-top" className="scroll-mt-2 lg:sticky lg:top-[150px]">
           <div className="h-[46vh] min-h-[300px] lg:h-[calc(100vh-250px)]">
             {mounted && (
               <MapCanvas
@@ -197,9 +231,7 @@ export default function MapPage() {
                 selectedId={selected}
                 onSelect={(id) => {
                   setSelected(id);
-                  document
-                    .querySelector(`[data-place-id="${CSS.escape(id)}"]`)
-                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  revelarFicha(id);
                 }}
                 me={me}
                 base={base}
@@ -359,6 +391,7 @@ export default function MapPage() {
                   key={p.id}
                   place={p}
                   selected={selected === p.id}
+                  flash={destello === p.id}
                   fav={fav.has(p.id)}
                   done={done.has(p.id)}
                   me={me}

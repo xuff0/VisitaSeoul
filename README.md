@@ -9,6 +9,10 @@ puestos en el mismo lugar: parado frente a la góndola de Olive Young, la app sa
 
 ## Qué hace
 
+**Del mapa a la ficha.** Tocás un punto y la vista baja a su ficha, que destella al llegar y
+queda justo debajo de la barra de filtros. Si ya estaba a la vista no se mueve nada. «Acercar»
+hace el camino inverso.
+
 **Mapa.** 141 lugares sobre la red de trenes del área metropolitana, en doce grupos: turismo,
 k-beauty, centros comerciales, mercados, electrónica, conveniencia, ópticas, ginseng, medicina,
 comida, ropa y otros. Cada uno dice a qué estación queda y a cuántos metros. Tu ubicación en vivo,
@@ -115,9 +119,10 @@ node tests/verify.mjs        # mapa, filtros, búsqueda en hangul, ubicación
 node tests/verify-crud.mjs   # crear, editar, ocultar, restaurar y eliminar
 node tests/verify-compras.mjs # catálogo, franquicia, los cuatro formatos de exportación, sin conexión
 node tests/verify-autofill.mjs # enlaces cortos, autocompletado y el grupo Medicina
+node tests/verify-mapa-ficha.mjs # del punto del mapa a su ficha, en tamaño de teléfono
 ```
 
-Los cuatro `verify*.mjs` necesitan el servidor levantado y usan el Chromium de Playwright. Aceptan
+Los cinco `verify*.mjs` necesitan el servidor levantado y usan el Chromium de Playwright. Aceptan
 `BASE_URL`, `SHOTS_DIR` para las capturas y `PW_CHROMIUM` para apuntar a un Chromium ya instalado,
 útil donde no se pueden descargar navegadores:
 

@@ -22,6 +22,8 @@ import { Badge, Button } from "@/components/ui/primitives";
 type Props = {
   place: Place;
   selected: boolean;
+  /** Destella al llegar desde el mapa, para que se vea cuál de todas es. */
+  flash: boolean;
   fav: boolean;
   done: boolean;
   me: { lat: number; lng: number } | null;
@@ -53,7 +55,8 @@ export default function PlaceCard(p: Props) {
       data-place-id={place.id}
       className={
         "flex overflow-hidden rounded-xl border bg-panel " +
-        (p.selected ? "border-ink shadow-[inset_0_0_0_1px_var(--color-ink)]" : "border-line")
+        (p.selected ? "border-ink shadow-[inset_0_0_0_1px_var(--color-ink)] " : "border-line ") +
+        (p.flash ? "vs-flash" : "")
       }
     >
       <span aria-hidden className="w-[5px] shrink-0" style={{ background: cat?.color ?? "#868e96" }} />
