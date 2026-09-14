@@ -43,7 +43,12 @@ body {
   }
 }
 
-/* --- Leaflet -------------------------------------------------------------- */
+/* --- Leaflet --------------------------------------------------------------
+   Ojo con el apilamiento: los rincones donde Leaflet pone sus controles
+   (.leaflet-top / .leaflet-bottom) usan z-index 1000, y sus globos 700. La barra de filtros
+   pegajosa tiene que ir por encima de todo eso —z-1100 en app/page.tsx—, porque ante un empate
+   gana el que va después en el DOM, que es el mapa: los botones de zoom terminaban dibujándose
+   sobre el buscador. */
 .leaflet-container {
   font-family: var(--font-sans);
   background: #e9eaee;
@@ -86,16 +91,25 @@ body {
   outline-offset: 2px;
 }
 
+/* Destello al llegar a una ficha desde el mapa.
+   Con más de cien fichas iguales, el borde de seleccionado no alcanza para decir «es ésta»,
+   sobre todo en un teléfono al sol. El aro se dibuja con outline y no con box-shadow para no
+   pisar la sombra interior que ya marca la ficha seleccionada. */
 @keyframes vs-flash {
-  from {
+  0%,
+  55% {
     background: #fdf3d6;
+    outline-color: #e0b528;
   }
-  to {
+  100% {
     background: var(--color-panel);
+    outline-color: transparent;
   }
 }
 .vs-flash {
-  animation: vs-flash 1.3s ease-out;
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+  animation: vs-flash 1.5s ease-out;
 }
 
 /* Ocultar la barra de desplazamiento en las filas de chips, que se arrastran con el dedo. */
