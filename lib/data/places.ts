@@ -15,6 +15,7 @@ export type CategoryId =
   | "conveniencia"
   | "opticas"
   | "ginseng"
+  | "medicina"
   | "comida"
   | "ropa"
   | "otros";
@@ -71,6 +72,7 @@ export const CATEGORIES: Category[] = [
   { id: "conveniencia", label: "Conveniencia", color: "#0b7285", icon: "🏪" },
   { id: "opticas", label: "Ópticas", color: "#2f4858", icon: "👓" },
   { id: "ginseng", label: "Ginseng y salud", color: "#5c940d", icon: "🌿" },
+  { id: "medicina", label: "Medicina", color: "#1098ad", icon: "💊" },
   { id: "comida", label: "Comida y snacks", color: "#e8590c", icon: "🍜" },
   { id: "ropa", label: "Ropa y outdoor", color: "#9c36b5", icon: "👕" },
   { id: "otros", label: "Otros", color: "#868e96", icon: "📍" },
@@ -91,6 +93,13 @@ export const CATEGORY_BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
 export const TAG_BY_ID = new Map(TAGS.map((t) => [t.id, t]));
 
 export const SEED_PLACES: PlaceSeed[] = [
+  {"id": "s-farmacias-de-myeongdong", "n": "Farmacias de Myeongdong", "k": "명동 약국", "c": "medicina", "z": "seul", "d": "Myeongdong", "lat": 37.5636, "lng": 126.984, "t": "En Corea hay una farmacia (약국) en casi cada cuadra, con cruz verde en el cartel. La mayoría cierra entre 19:00 y 21:00 y muchas no abren domingo. Este punto es apenas un ancla para ubicarte; sin receta se consigue analgésico, antiácido y remedio para el resfrío.", "hours": "Casi todas 09:00–20:00, muchas cerradas el domingo"},
+  {"id": "s-farmacia-de-turno-24-horas", "n": "Farmacia de turno (24 horas)", "k": "심야약국", "c": "medicina", "z": "seul", "d": "Jung-gu", "lat": 37.565, "lng": 126.977, "t": "Las farmacias nocturnas son pocas y rotan. Se buscan en la aplicación oficial (응급의료정보제공) o llamando al 119. En una urgencia real, la guardia de un hospital grande resuelve más rápido que buscar farmacia abierta.", "tags": ["nocturno"], "hours": "Rotan: verificá antes de ir"},
+  {"id": "s-hospital-severance-yonsei", "n": "Hospital Severance (Yonsei)", "k": "신촌세브란스병원", "c": "medicina", "z": "seul", "d": "Seodaemun", "lat": 37.5622, "lng": 126.941, "t": "Uno de los hospitales de referencia del país, con centro de atención internacional y personal en inglés. Llevá pasaporte y la póliza del seguro de viaje: sin seguro, la atención para extranjeros se paga completa y no es barata.", "tags": ["taxfree"]},
+  {"id": "s-samsung-medical-center", "n": "Samsung Medical Center", "k": "삼성서울병원", "c": "medicina", "z": "seul", "d": "Gangnam", "lat": 37.4885, "lng": 127.0855, "t": "También con servicios internacionales. Queda lejos del centro: conviene sólo si estás del lado sur del río."},
+  {"id": "s-asan-medical-center", "n": "Asan Medical Center", "k": "서울아산병원", "c": "medicina", "z": "seul", "d": "Songpa", "lat": 37.527, "lng": 127.108, "t": "El hospital más grande de Corea, con atención para extranjeros. Cerca de Jamsil y de Lotte World."},
+  {"id": "s-hospital-universitario-de-seul", "n": "Hospital Universitario de Seúl", "k": "서울대학교병원", "c": "medicina", "z": "seul", "d": "Jongno", "lat": 37.5796, "lng": 126.999, "t": "En pleno centro, al lado de Changgyeonggung. Es el más accesible si te agarra algo mientras recorrés los palacios."},
+  {"id": "s-clinicas-de-apgujeong", "n": "Clínicas de Apgujeong", "k": "압구정 피부과 성형외과 거리", "c": "medicina", "z": "seul", "d": "Gangnam", "lat": 37.527, "lng": 127.029, "t": "La zona de dermatología y estética de Seúl, concentrada alrededor de la estación Apgujeong Rodeo. Ojo con el precio: desde el 1 de enero de 2026 ya no hay devolución de IVA por procedimientos médicos ni estéticos, así que lo que te cotizan es lo que pagás."},
   {"id": "s-palacio-gyeongbokgung", "n": "Palacio Gyeongbokgung", "k": "경복궁", "c": "turismo", "z": "seul", "d": "Jongno", "lat": 37.5796, "lng": 126.977, "t": "El palacio grande. Cambio de guardia 10:00 y 14:00, cerrado los martes. Con hanbok alquilado no se paga entrada."},
   {"id": "s-palacio-changdeokgung-y-jardin-secreto", "n": "Palacio Changdeokgung y Jardín Secreto", "k": "창덕궁", "c": "turismo", "z": "seul", "d": "Jongno", "lat": 37.5794, "lng": 126.991, "t": "Patrimonio de la Unesco. El Huwon (jardín) se visita solo con recorrido guiado y entrada aparte; se agota temprano."},
   {"id": "s-palacio-deoksugung", "n": "Palacio Deoksugung", "k": "덕수궁", "c": "turismo", "z": "seul", "d": "Jung-gu", "lat": 37.5658, "lng": 126.9751, "t": "Mezcla de edificios coreanos y occidentales. El muro de piedra de afuera es lindo de noche."},

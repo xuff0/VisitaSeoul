@@ -12,7 +12,7 @@ declare const self: ServiceWorkerGlobalScope;
 /**
  * Service worker.
  *
- * Precachea la aplicación entera —incluida la red de trenes y los 134 lugares, que viajan en el
+ * Precachea la aplicación entera —incluida la red de trenes y los 141 lugares, que viajan en el
  * bundle— y guarda además los mosaicos del mapa que ya miraste.
  *
  * Lo que NO hace: descargar Seúl entero por adelantado. La política de uso de los mosaicos de
@@ -40,6 +40,10 @@ const serwist = new Serwist({
         ],
       }),
     },
+    // El defaultCache de Serwist atiende /api/ con NetworkFirst y queda ordenado antes que estas
+    // reglas, así que no se puede desplazar desde acá. Se deja como está a propósito: la clave de
+    // caché incluye el enlace corto completo, de modo que un acierto sólo puede devolver el punto
+    // que ese mismo enlace ya tenía, y únicamente cuando la red falla. Nunca el de otro lugar.
     ...defaultCache,
   ],
 });
