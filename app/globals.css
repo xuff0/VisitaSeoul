@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* Paleta heredada del seulsitios.html original: gris papel, tinta casi negra, líneas suaves.
+   Está pensada para leerse al sol, que es donde de verdad se usa esta app. */
+@theme {
+  --color-ink: #16181d;
+  --color-ink-2: #565c68;
+  --color-ink-3: #8b919c;
+  --color-paper: #eeeff2;
+  --color-panel: #ffffff;
+  --color-line: #d9dbe1;
+  --color-naver: #03c75a;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+    "Malgun Gothic", "Noto Sans KR", sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* --- Leaflet -------------------------------------------------------------- */
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: #e9eaee;
+}
+.leaflet-popup-content {
+  margin: 10px 12px;
+}
+.gu-label {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
+/* El marcador es un círculo de color con el glifo de la categoría: con once grupos, el color
+   solo no alcanza para distinguirlos de un vistazo. */
+.vs-pin {
+  background: none;
+  border: 0;
+}
+.vs-pin span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  font-size: 11px;
+  line-height: 1;
+}
+.vs-pin.is-done span {
+  opacity: 0.45;
+}
+.vs-pin.is-selected span {
+  outline: 3px solid #16181d;
+  outline-offset: 2px;
+}
+
+@keyframes vs-flash {
+  from {
+    background: #fdf3d6;
+  }
+  to {
+    background: var(--color-panel);
+  }
+}
+.vs-flash {
+  animation: vs-flash 1.3s ease-out;
+}
+
+/* Ocultar la barra de desplazamiento en las filas de chips, que se arrastran con el dedo. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
