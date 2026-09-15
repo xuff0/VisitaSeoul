@@ -83,6 +83,13 @@ export default function MapCanvas(props: MapCanvasProps) {
     m.getPane("basegeo")!.style.pointerEvents = "none";
     m.createPane("metro").style.zIndex = "350";
     m.createPane("me").style.zIndex = "650";
+    // Tu posición se dibuja por encima de todo, pero no debe recibir toques.
+    //
+    // El mapa usa preferCanvas, así que el punto azul y su círculo de precisión van a un canvas
+    // que ocupa el mapa entero. Ese canvas está sobre el panel de marcadores, de modo que sin
+    // esta línea se come cada toque sobre un punto: Leaflet no encuentra figura donde tocaste,
+    // dispara un clic de mapa, y la ficha no se abre. Encender la ubicación dejaba el mapa mudo.
+    m.getPane("me")!.style.pointerEvents = "none";
 
     vectorGroup.current = L.layerGroup();
     for (const g of DISTRICTS) {
@@ -344,9 +351,10 @@ export default function MapCanvas(props: MapCanvasProps) {
         weight: 3,
         fillColor: "#1f6feb",
         fillOpacity: 1,
-      })
-        .bindTooltip("Estás acá", { direction: "top" })
-        .addTo(m);
+        // Explícito además del pointerEvents del panel: nada depende de tocar tu propio punto,
+        // y su rótulo sólo tapaba lo que sí importa tocar.
+        interactive: false,
+      }).addTo(m);
     } else {
       meMarker.current.setLatLng([me.lat, me.lng]);
       meCircle.current?.setLatLng([me.lat, me.lng]).setRadius(me.acc ?? 0);
