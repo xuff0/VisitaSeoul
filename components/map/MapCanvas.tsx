@@ -6,8 +6,7 @@ import { useEffect, useRef } from "react";
 import { DISTRICTS, HAN_RIVER } from "@/lib/data/geo";
 import { LINE_BY_ID, LINE_PATHS, STATIONS } from "@/lib/data/metro";
 import { CATEGORY_BY_ID, type Category } from "@/lib/data/places";
-import { formatKm, stationLines } from "@/lib/geo";
-import { googleMapsUrl, naverWebUrl } from "@/lib/naver";
+import { stationLines } from "@/lib/geo";
 import type { Place } from "@/lib/types";
 
 export type BaseId = "claro" | "gris" | "sat" | "vector";
@@ -25,6 +24,9 @@ export type MapCanvasProps = {
   showDistricts: boolean;
   pickMode: PickMode;
   onPick: (lat: number, lng: number) => void;
+  /** Tocar el mapa fuera de un punto: sirve para cerrar la ficha breve. */
+  onBackgroundClick?: () => void;
+
   /** Vuelve a encuadrar cuando cambia: se usa al cambiar de filtro, no en cada render. */
   fitKey?: string;
   /**
@@ -49,11 +51,6 @@ const BASES: Record<Exclude<BaseId, "vector">, { url: string; opts: L.TileLayerO
     opts: { maxZoom: 19, maxNativeZoom: 18, attribution: "Imágenes: Esri" },
   },
 };
-
-const esc = (s: unknown) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
-  );
 
 export default function MapCanvas(props: MapCanvasProps) {
   const holder = useRef<HTMLDivElement>(null);
@@ -161,8 +158,13 @@ export default function MapCanvas(props: MapCanvasProps) {
     pinGroup.current = L.layerGroup().addTo(m);
 
     m.on("click", (e: L.LeafletMouseEvent) => {
-      const { pickMode, onPick } = latest.current;
-      if (pickMode) onPick(e.latlng.lat, e.latlng.lng);
+      const { pickMode, onPick, onBackgroundClick } = latest.current;
+      if (pickMode) {
+        onPick(e.latlng.lat, e.latlng.lng);
+        return;
+      }
+      // Leaflet no propaga el clic de un marcador al mapa, así que acá sólo llega el fondo.
+      onBackgroundClick?.();
     });
     // Las estaciones sólo aparecen de cerca: a nivel ciudad son 644 puntos de ruido.
     m.on("zoomend", () => syncStations(m));
@@ -268,16 +270,6 @@ export default function MapCanvas(props: MapCanvasProps) {
         title: p.n,
       });
 
-      const naver = naverWebUrl({ name: p.n, nameKo: p.k });
-      marker.bindPopup(
-        `<div style="font-weight:640;font-size:15px">${esc(p.n)}</div>` +
-          (p.k ? `<div style="color:#565c68;font-size:14px">${esc(p.k)}</div>` : "") +
-          (p.km != null ? `<div style="color:#8b919c;font-size:12.5px;margin-top:4px">a ${formatKm(p.km)} de vos</div>` : "") +
-          `<div style="display:flex;gap:6px;margin-top:9px">` +
-          `<a href="${naver}" target="_blank" rel="noopener" style="font-size:12.5px;padding:5px 9px;border-radius:8px;background:#03c75a;color:#fff;font-weight:600;text-decoration:none">Naver</a>` +
-          `<a href="${googleMapsUrl(p)}" target="_blank" rel="noopener" style="font-size:12.5px;padding:5px 9px;border-radius:8px;border:1px solid #d9dbe1;text-decoration:none;color:#16181d">Google</a>` +
-          `</div>`,
-      );
       marker.on("click", () => latest.current.onSelect(p.id));
       marker.addTo(group);
       pins.current.set(p.id, marker);
@@ -300,8 +292,24 @@ export default function MapCanvas(props: MapCanvasProps) {
     if (!m || !props.selectedId) return;
     const p = props.places.find((x) => x.id === props.selectedId);
     if (!p) return;
-    if (!m.getBounds().pad(-0.12).contains([p.lat, p.lng])) m.panTo([p.lat, p.lng]);
-    pins.current.get(p.id)?.openPopup();
+
+    // La zona realmente visible del mapa es la que la ficha breve no tapa. Se mide en el momento,
+    // que es cuando el dato existe y es exacto: la hoja va fija abajo en el teléfono y dentro de
+    // la columna del mapa en pantallas anchas, así que cuánto tapa depende del desplazamiento.
+    const tamaño = m.getSize();
+    const hoja = document.querySelector<HTMLElement>("[data-hoja]");
+    const rectMapa = m.getContainer().getBoundingClientRect();
+    const tapa = hoja ? Math.max(0, rectMapa.bottom - hoja.getBoundingClientRect().top) : 0;
+    const altoVisible = Math.max(120, tamaño.y - tapa);
+    const punto = m.latLngToContainerPoint([p.lat, p.lng]);
+    const margen = 28;
+    const tapado =
+      punto.y > altoVisible - margen || punto.y < margen || punto.x < margen || punto.x > tamaño.x - margen;
+
+    if (tapado) {
+      // Se corre el mapa lo justo para dejar el punto en el centro de lo que se ve.
+      m.panBy(punto.subtract(L.point(tamaño.x / 2, altoVisible / 2)), { animate: true });
+    }
   }, [props.selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- tu posición ---------------------------------------------------------

@@ -9,9 +9,11 @@ puestos en el mismo lugar: parado frente a la góndola de Olive Young, la app sa
 
 ## Qué hace
 
-**Del mapa a la ficha.** Tocás un punto y la vista baja a su ficha, que destella al llegar y
-queda justo debajo de la barra de filtros. Si ya estaba a la vista no se mueve nada. «Acercar»
-hace el camino inverso.
+**Del mapa a la ficha.** Tocás un punto y sale una ficha breve **sobre el mapa**, con el nombre en
+coreano, la estación, los avisos y —lo que importa parado en la puerta— qué comprar ahí, ordenado
+por cuánto más cuesta en Bolivia. El mapa se queda a la vista, así que comparar dos lugares es
+tocar un punto y después el otro. «Ver ficha completa» baja a la ficha larga, que destella al
+llegar, y «Acercar» hace el camino inverso.
 
 **Mapa.** 141 lugares sobre la red de trenes del área metropolitana, en doce grupos: turismo,
 k-beauty, centros comerciales, mercados, electrónica, conveniencia, ópticas, ginseng, medicina,
