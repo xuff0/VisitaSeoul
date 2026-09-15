@@ -19,6 +19,8 @@ const ok = (n, c, e = "") => { console.log(`${c ? "  ok  " : "FAIL  "}${n}${e ? 
 const browser = await chromium.launch({ executablePath: EXEC });
 const ctx = await browser.newContext({
   viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-BO",
+  permissions: ["geolocation"],
+  geolocation: { latitude: 37.5638, longitude: 126.9827, accuracy: 12 }, // Myeongdong
 });
 const page = await ctx.newPage();
 const errors = [];
@@ -145,6 +147,67 @@ const volvio = await page.evaluate(() => {
   return m.bottom > 0 && m.top < window.innerHeight;
 });
 ok("«Acercar» devuelve la vista al mapa", volvio);
+
+// ------------------------------------------------ con la ubicación encendida
+//
+// Regresión: el punto azul y su círculo de precisión se dibujan en un canvas que ocupa el mapa
+// entero, por encima del panel de marcadores. Sin pointerEvents:none en ese panel, ese canvas se
+// comía todos los toques y encender la ubicación dejaba el mapa mudo: no se abría ninguna ficha.
+/**
+ * Centro de un punto que se pueda tocar de verdad: dentro del mapa, dentro de la ventana y por
+ * debajo de la barra pegajosa. No alcanza con que esté dentro del recuadro del mapa — si el mapa
+ * está desplazado, ese punto puede caer fuera de la pantalla y no lo toca nadie.
+ */
+const buscarPinTocable = () =>
+  page.evaluate(() => {
+    const mapa = document.querySelector(".leaflet-container").getBoundingClientRect();
+    const barra = document.querySelector("div.sticky").getBoundingClientRect().height;
+    for (const el of document.querySelectorAll(".vs-pin")) {
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const enMapa = x >= mapa.left && x <= mapa.right && y >= mapa.top && y <= mapa.bottom;
+      const enPantalla = x >= 0 && x <= window.innerWidth && y >= barra && y <= window.innerHeight;
+      if (enMapa && enPantalla) {
+        // El glifo del marcador es un <span> sin clase dentro del .vs-pin, así que no alcanza con
+        // mirar la clase del elemento: hay que preguntar si pertenece a un punto.
+        const encima = document.elementFromPoint(x, y);
+        return {
+          x: Math.round(x),
+          y: Math.round(y),
+          esUnPunto: !!encima?.closest(".vs-pin"),
+          recibe: encima ? `${encima.tagName}.${String(encima.className) || "(sin clase)"}` : "nada",
+        };
+      }
+    }
+    return null;
+  });
+
+const tocarPinVisible = async () => {
+  const punto = await buscarPinTocable();
+  if (!punto) return false;
+  await page.mouse.click(punto.x, punto.y);
+  await page.waitForTimeout(1000);
+  return (await page.locator("[data-hoja]").count()) === 1;
+};
+
+await page.getByRole("button", { name: "Mi ubicación" }).click();
+await page.waitForTimeout(2500);
+ok("toma la ubicación", await page.locator("text=/Ubicación en vivo/").count() > 0);
+
+const tocable = await buscarPinTocable();
+ok("con la ubicación activa, el toque llega al punto y no al canvas de tu posición",
+   !!tocable && tocable.esUnPunto, tocable?.recibe.slice(0, 50) ?? "ningún punto tocable");
+
+ok("y la ficha breve se abre igual", await tocarPinVisible());
+
+await page.locator("[data-hoja]").getByRole("button", { name: "Cerrar" }).click();
+await page.waitForTimeout(400);
+
+// «Cerca de mí» enciende la ubicación por su cuenta: mismo camino, misma trampa.
+await page.getByRole("button", { name: "Cerca de mí" }).click();
+await page.waitForTimeout(1800);
+ok("con «Cerca de mí» también se abre la ficha", await tocarPinVisible());
 
 ok("sin errores de página", errors.length === 0, errors.slice(0, 2).join(" | "));
 
