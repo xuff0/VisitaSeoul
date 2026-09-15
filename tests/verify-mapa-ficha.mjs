@@ -1,9 +1,9 @@
-// Ir del punto del mapa a su ficha, en tamaño de teléfono.
+// Tocar un punto del mapa: ficha breve sobre el mapa, en tamaño de teléfono.
 //
-// Tres cosas que se rompieron antes y no deberían volver a romperse: el destello que señala la
-// ficha (se aplicaba tocando el DOM, y el render de React lo borraba), el desplazamiento que
-// dejaba la ficha debajo de la barra de filtros, y el orden de capas — los rincones de control de
-// Leaflet usan z-index 1000 y se dibujaban sobre el buscador.
+// Antes se hacían dos cosas que se peleaban: se abría el globo de Leaflet y, al mismo tiempo, la
+// página se desplazaba a la lista. El globo quedaba fuera de pantalla —nunca se veía— y el mapa
+// desaparecía entero. Ahora la información sale en una hoja sobre el mapa, y bajar a la ficha
+// larga es una acción explícita.
 import pkg from "@playwright/test";
 const { chromium } = pkg;
 import { mkdirSync } from "node:fs";
@@ -18,91 +18,133 @@ const ok = (n, c, e = "") => { console.log(`${c ? "  ok  " : "FAIL  "}${n}${e ? 
 
 const browser = await chromium.launch({ executablePath: EXEC });
 const ctx = await browser.newContext({
-  viewport: { width: 412, height: 915 },
-  deviceScaleFactor: 2,
-  isMobile: true,
-  hasTouch: true,
-  locale: "es-BO",
+  viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-BO",
 });
 const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
+const geometria = () =>
+  page.evaluate(() => {
+    const h = document.querySelector("[data-hoja]")?.getBoundingClientRect();
+    const m = document.querySelector(".leaflet-container").getBoundingClientRect();
+    const barra = document.querySelector("div.sticky").getBoundingClientRect().height;
+    return {
+      hoja: !!h,
+      scrollY: Math.round(window.scrollY),
+      mapaVisiblePx: Math.round(Math.min(m.bottom, h ? h.top : window.innerHeight) - Math.max(m.top, barra)),
+      globos: document.querySelectorAll(".leaflet-popup").length,
+      titulo: document.querySelector("[data-hoja] h2")?.textContent ?? null,
+    };
+  });
+
 await page.goto(BASE, { waitUntil: "networkidle" });
 await page.waitForSelector(".vs-pin", { timeout: 15000 });
 await page.waitForTimeout(1500);
 
-// ------------------------------------------------ la barra manda sobre el mapa
-// Con el mapa desplazado bajo la barra, cada punto de la barra tiene que responder a la barra.
-await page.evaluate(() => window.scrollTo(0, 700));
-await page.waitForTimeout(500);
-const quienResponde = await page.evaluate(() =>
-  [[380, 18], [200, 60], [100, 150], [350, 120]].map(([x, y]) => {
-    const el = document.elementFromPoint(x, y);
-    return el?.closest("div.sticky") ? "barra" : `mapa:${String(el?.className).slice(0, 24)}`;
-  }),
-);
-ok("la barra de filtros queda por encima de los controles de Leaflet",
-   quienResponde.every((q) => q === "barra"), quienResponde.join(" | "));
+// Un grupo chico: con 141 puntos a escala de ciudad se tapan entre sí.
+await page.getByRole("button", { name: "K-beauty 9", exact: true }).click();
+await page.waitForTimeout(1300);
 
-await page.evaluate(() => window.scrollTo(0, 0));
-await page.waitForTimeout(400);
+// ------------------------------------------------ tocar un punto
+await page.locator(".vs-pin").first().click({ force: true });
+await page.waitForTimeout(1500);
+const g = await geometria();
 
-// ------------------------------------------------ del punto a la ficha
-// Se filtra a un grupo chico: con 141 puntos a escala de ciudad se tapan entre sí.
-await page.getByRole("button", { name: "Ópticas 4", exact: true }).click();
-await page.waitForTimeout(1200);
-ok("el filtro deja pocos puntos, sin encimarse", (await page.locator(".vs-pin").count()) === 4);
+ok("se abre la ficha breve", g.hoja, g.titulo ?? "");
+ok("ya no quedan globos de Leaflet", g.globos === 0);
+ok("el mapa sigue a la vista, y con espacio", g.mapaVisiblePx > 300, `${g.mapaVisiblePx} px de mapa`);
+ok("la página no se va de viaje sola", g.scrollY < 400, `scrollY ${g.scrollY}`);
+
+// ------------------------------------------------ contenido de la hoja
+const contenido = await page.evaluate(() => {
+  const h = document.querySelector("[data-hoja]");
+  return {
+    coreano: h.querySelector("[lang=ko]")?.textContent ?? "",
+    texto: h.textContent,
+    productos: [...h.querySelectorAll('a[href*="shopping.naver"]')].map((a) => a.textContent.trim()),
+    multiplos: [...h.querySelectorAll('a[href*="shopping.naver"] span:last-child')].map((s) => s.textContent.trim()),
+  };
+});
+ok("muestra el nombre en coreano", /[ㄱ-ㆎ가-힣]/.test(contenido.coreano), contenido.coreano);
+ok("muestra la estación más cercana", /a \d+ m|a \d+[.,]\d+ km/.test(contenido.texto));
+ok("muestra qué comprar ahí", contenido.productos.length > 0, contenido.productos[0]?.slice(0, 44));
+ok("los productos abren el precio en Naver", contenido.productos.length > 0);
+
+// El orden importa: lo primero que se lee tiene que ser lo que más conviene.
+const conMultiplo = contenido.multiplos.map((m) => parseFloat(m.replace(",", ".")))
+  .filter((n) => Number.isFinite(n));
+ok("ordenados por conveniencia, el mejor primero",
+   conMultiplo.every((n, i) => i === 0 || conMultiplo[i - 1] >= n), conMultiplo.join(" ≥ "));
+
+// ------------------------------------------------ el punto no queda tapado por la hoja
+const puntoVisible = await page.evaluate(() => {
+  const sel = document.querySelector(".vs-pin.is-selected");
+  if (!sel) return null;
+  const r = sel.getBoundingClientRect();
+  const h = document.querySelector("[data-hoja]").getBoundingClientRect();
+  const barra = document.querySelector("div.sticky").getBoundingClientRect().height;
+  return { tapadoPorLaHoja: r.top > h.top, tapadoPorLaBarra: r.bottom < barra };
+});
+ok("el punto seleccionado no queda escondido detrás de la hoja",
+   puntoVisible && !puntoVisible.tapadoPorLaHoja && !puntoVisible.tapadoPorLaBarra, JSON.stringify(puntoVisible));
+
+await page.screenshot({ path: `${shots}/21-hoja.png` });
+
+// ------------------------------------------------ saltar de un punto a otro sin desplazarse
+const antes = (await geometria()).scrollY;
+await page.locator(".vs-pin").nth(1).click({ force: true });
+await page.waitForTimeout(1000);
+const despues = await geometria();
+ok("tocar otro punto cambia la hoja", despues.titulo !== g.titulo, `${g.titulo} → ${despues.titulo}`);
+ok("y comparar dos lugares no obliga a desplazarse", Math.abs(despues.scrollY - antes) < 40, `${antes} → ${despues.scrollY}`);
+
+// ------------------------------------------------ cerrar
+await page.locator("[data-hoja]").getByRole("button", { name: "Cerrar" }).click();
+await page.waitForTimeout(600);
+ok("la equis cierra la hoja", (await page.locator("[data-hoja]").count()) === 0);
 
 await page.locator(".vs-pin").first().click({ force: true });
-await page.waitForTimeout(400);
+await page.waitForTimeout(900);
+ok("se puede volver a abrir", (await page.locator("[data-hoja]").count()) === 1);
 
-ok("la ficha destella al llegar", (await page.locator("[data-place-id].vs-flash").count()) === 1);
+// tocar el mapa lejos de cualquier punto
+await page.locator(".leaflet-container").click({ position: { x: 30, y: 30 } });
+await page.waitForTimeout(600);
+ok("tocar el fondo del mapa la cierra", (await page.locator("[data-hoja]").count()) === 0);
 
-const pos = await page.evaluate(() => {
+// ------------------------------------------------ bajar a la ficha larga, ahora a pedido
+await page.locator(".vs-pin").first().click({ force: true });
+await page.waitForTimeout(900);
+const tituloHoja = await page.locator("[data-hoja] h2").textContent();
+await page.locator("[data-hoja]").getByRole("button", { name: "Ver ficha completa" }).click();
+await page.waitForTimeout(1500);
+
+ok("«Ver ficha completa» cierra la hoja", (await page.locator("[data-hoja]").count()) === 0);
+const ficha = await page.evaluate(() => {
   const el = document.querySelector("[data-place-id].border-ink");
   if (!el) return null;
   const barra = document.querySelector("div.sticky").getBoundingClientRect().height;
   const r = el.getBoundingClientRect();
   return {
-    nombre: el.textContent.trim().slice(0, 28),
-    tapadaPorLaBarra: r.top < barra - 1,
-    fueraDePantalla: r.bottom < 0 || r.top > window.innerHeight,
-    holguraBajoLaBarra: Math.round(r.top - barra),
+    nombre: el.textContent.trim().slice(0, 40),
+    destella: el.classList.contains("vs-flash"),
+    tapada: r.top < barra - 1,
+    fuera: r.bottom < 0 || r.top > window.innerHeight,
   };
 });
-ok("la ficha seleccionada es la del punto tocado", pos?.nombre?.includes("ópticas") || pos?.nombre?.includes("Davich"), pos?.nombre);
-ok("no queda tapada por la barra de filtros", pos && !pos.tapadaPorLaBarra, `holgura ${pos?.holguraBajoLaBarra}px`);
-ok("queda dentro de la pantalla", pos && !pos.fueraDePantalla);
-await page.screenshot({ path: `${shots}/12-destello.png` });
+ok("baja a la ficha del mismo lugar", ficha && tituloHoja && ficha.nombre.startsWith(tituloHoja.slice(0, 14)), `${tituloHoja} / ${ficha?.nombre}`);
+ok("y la ficha destella al llegar", ficha?.destella);
+ok("sin quedar tapada ni fuera de pantalla", ficha && !ficha.tapada && !ficha.fuera);
 
-await page.waitForTimeout(1800);
-ok("el destello se apaga solo", (await page.locator("[data-place-id].vs-flash").count()) === 0);
-
-// Tocar el mismo punto otra vez: tiene que volver a destellar y, como la ficha ya quedó a la
-// vista del toque anterior, la pantalla no debería moverse. Un salto sin motivo desorienta más
-// de lo que ayuda.
-const scrollTrasElPrimerToque = await page.evaluate(() => window.scrollY);
-await page.locator(".vs-pin").first().click({ force: true });
-await page.waitForTimeout(400);
-ok("volver a tocar el mismo punto vuelve a destellar", (await page.locator("[data-place-id].vs-flash").count()) === 1);
-
-const scrollTrasElSegundo = await page.evaluate(() => window.scrollY);
-ok(
-  "con la ficha ya a la vista, la pantalla no salta",
-  Math.abs(scrollTrasElSegundo - scrollTrasElPrimerToque) < 30,
-  `${scrollTrasElPrimerToque} → ${scrollTrasElSegundo}`,
-);
-
-// ------------------------------------------------ y de la ficha de vuelta al mapa
-await page.waitForTimeout(1600);
+// ------------------------------------------------ «Acercar» hace el camino inverso
 await page.locator("[data-place-id].border-ink").getByRole("button", { name: "Acercar" }).click();
-await page.waitForTimeout(1500);
-const mapa = await page.evaluate(() => {
+await page.waitForTimeout(1400);
+const volvio = await page.evaluate(() => {
   const m = document.querySelector(".leaflet-container").getBoundingClientRect();
-  return { visible: m.bottom > 0 && m.top < window.innerHeight, top: Math.round(m.top) };
+  return m.bottom > 0 && m.top < window.innerHeight;
 });
-ok("«Acercar» devuelve la vista al mapa", mapa.visible, `top del mapa: ${mapa.top}`);
+ok("«Acercar» devuelve la vista al mapa", volvio);
 
 ok("sin errores de página", errors.length === 0, errors.slice(0, 2).join(" | "));
 

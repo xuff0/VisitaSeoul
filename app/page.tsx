@@ -6,11 +6,12 @@ import type { BaseId, PickMode } from "@/components/map/MapCanvas";
 import { useGeolocation } from "@/components/map/useGeolocation";
 import PlaceCard from "@/components/places/PlaceCard";
 import PlaceForm from "@/components/places/PlaceForm";
+import PlaceSheet from "@/components/places/PlaceSheet";
 import { Button, Chip, Toggle } from "@/components/ui/primitives";
 import { LINE_BY_ID, LINES } from "@/lib/data/metro";
 import { deletePlace, restoreSeedPlace, savePlace, toggleFlag } from "@/lib/db/repo";
 import { formatKm, nearestStation, parseCoords } from "@/lib/geo";
-import { useCategories, useFlags, useMounted, usePlaces, useRates } from "@/lib/hooks";
+import { useCategories, useFlags, useMounted, usePlaces, useRates, useSettings } from "@/lib/hooks";
 import { copyText } from "@/lib/share";
 import type { Place, PlaceInput } from "@/lib/types";
 
@@ -30,6 +31,7 @@ export default function MapPage() {
   const { fav, done } = useFlags();
   const categories = useCategories();
   const rates = useRates();
+  const settings = useSettings();
 
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("todas");
@@ -44,6 +46,8 @@ export default function MapPage() {
   const [showDistricts, setShowDistricts] = useState(false);
 
   const [selected, setSelected] = useState<string | null>(null);
+  /** Lugar abierto en la ficha breve sobre el mapa. Null = ninguna. */
+  const [enHoja, setEnHoja] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>(null);
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -55,6 +59,23 @@ export default function MapPage() {
   /** Ficha que está destellando. Va en estado: puesto a mano en el DOM, el siguiente render lo borra. */
   const [destello, setDestello] = useState<string | null>(null);
   const destelloTimer = useRef<number | undefined>(undefined);
+
+  /**
+   * Sube el mapa hasta quedar justo debajo de la barra de filtros.
+   *
+   * Se llama al abrir la ficha breve: la hoja tapa el tercio de abajo, y si además el encabezado
+   * empuja el mapa hacia abajo queda una franja de mapa demasiado angosta para servir de nada.
+   * Alineándolo, el mapa gana casi el doble de alto sin que la hoja se mueva.
+   */
+  function acomodarMapa() {
+    const mapa = document.getElementById("mapa-top");
+    if (!mapa) return;
+    const barra = barraRef.current?.getBoundingClientRect().height ?? 0;
+    const desfase = mapa.getBoundingClientRect().top - barra;
+    if (Math.abs(desfase) < 12) return; // ya está donde corresponde
+    const suave = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    window.scrollTo({ top: window.scrollY + desfase, behavior: suave });
+  }
 
   /**
    * Lleva la vista a la ficha de un sitio y la resalta.
@@ -115,6 +136,10 @@ export default function MapPage() {
   }, [places, q, cat, zone, onlyFav, onlyPending, radius, sortByDistance, me, fav, done]);
 
   const fitKey = `${cat}|${zone}|${onlyFav}|${onlyPending}|${radius}`;
+
+  // Si el lugar abierto deja de pasar el filtro, la hoja se queda sin contenido y desaparece
+  // sola, en vez de quedar mostrando algo que ya no está en el mapa.
+  const hojaPlace = enHoja ? (filtered.find((p) => p.id === enHoja) ?? null) : null;
 
   function openAdd() {
     setEditing(null);
@@ -221,8 +246,8 @@ export default function MapPage() {
       </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(360px,420px)_1fr] lg:items-start">
-        <div id="mapa-top" className="scroll-mt-2 lg:sticky lg:top-[150px]">
-          <div className="h-[46vh] min-h-[300px] lg:h-[calc(100vh-250px)]">
+        <div id="mapa-top" className="relative scroll-mt-2 lg:sticky lg:top-[150px]">
+          <div className="relative h-[46vh] min-h-[300px] lg:h-[calc(100vh-250px)]">
             {mounted && (
               <MapCanvas
                 places={filtered}
@@ -231,8 +256,10 @@ export default function MapPage() {
                 selectedId={selected}
                 onSelect={(id) => {
                   setSelected(id);
-                  revelarFicha(id);
+                  setEnHoja(id);
+                  acomodarMapa();
                 }}
+                onBackgroundClick={() => setEnHoja(null)}
                 me={me}
                 base={base}
                 showMetro={showMetro}
@@ -241,6 +268,20 @@ export default function MapPage() {
                 onPick={handleMapPick}
                 fitKey={fitKey}
                 focusRef={focusRef}
+              />
+            )}
+
+            {hojaPlace && (
+              <PlaceSheet
+                place={hojaPlace}
+                me={me}
+                rates={rates}
+                bobRate={settings.bobRate}
+                onClose={() => setEnHoja(null)}
+                onVerFicha={() => {
+                  setEnHoja(null);
+                  revelarFicha(hojaPlace.id);
+                }}
               />
             )}
           </div>
